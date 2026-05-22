@@ -178,7 +178,7 @@
 
         <div id="home-screen" class="screen">
             <div class="home-header">
-                <div class="search-bar"><span>🔍</span> Cari Ayam Bakar...</div>
+                <div class="search-bar"><span>🔍</span> Cari Sate Asin...</div>
                 <div class="profile-btn">D</div>
             </div>
 
@@ -315,7 +315,7 @@
 
                     <div class="driver-notes">
                         <h5>📝 Pesan dari Driver:</h5>
-                        <p>"Dandan yang cantik ya, aku otw jemput sekarang. Pake jaket biar gak masuk angin!"</p>
+                        <p>"Dandan yang cantik ya, aku otw jemput sekarang."</p>
                     </div>
                     
                     <a href="#" class="wa-btn" id="wa-link">
@@ -336,7 +336,7 @@
         // === KONFIGURASI WA SESUAI REQUEST ===
         // Harus pake 628 depannya biar kebuka ke WhatsApp
         const NO_WA = "6281111122878"; 
-        const PESAN = "aku udah siap ya, cepettt otww, HATI HATIII YAA";
+        const PESAN = "aku udah siap ya, cepettt otww!!!";
 
         // === DOM ELEMENTS ===
         const toast = document.getElementById('toast');
@@ -402,7 +402,7 @@
                     let randLat = lat + (Math.random() - 0.5) * 0.006;
                     let randLng = lng + (Math.random() - 0.5) * 0.006;
                     L.marker([randLat, randLng], {
-                        icon: L.divIcon({className: 'custom-green-pin', html: '<span style="font-size:24px; filter:drop-shadow(0px 2px 2px rgba(0,0,0,0.5));">🛵</span>', iconSize: [30,30], iconAnchor: [15,15]})
+                        icon: L.divIcon({className: 'custom-green-pin', html: '<span style="font-size:24px; filter:drop-shadow(0px 2px 2px rgba(0,0,0,0.5));">🚗</span>', iconSize: [30,30], iconAnchor: [15,15]})
                     }).addTo(map);
                 }
 
@@ -439,7 +439,7 @@
             const loadingTexts = [
                 "Menghubungi server cinta...",
                 "Membangunkan supir ganteng...",
-                "Menyiapkan helm & jaket...",
+                "Menyiapkan pakaian...",
                 "Hampir dapet nih..."
             ];
             
