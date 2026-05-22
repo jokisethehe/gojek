@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Goiyel - Pesan Supir Pribadi</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+    <style>
+        /* === RESET & CONTAINER HP === */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        
+        body { background-color: #121212; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        
+        #app { 
+            width: 100%; 
+            max-width: 400px; 
+            background-color: #ffffff; 
+            height: 100vh; 
+            position: relative; 
+            overflow-y: auto; 
+            overflow-x: hidden; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        #app::-webkit-scrollbar { display: none; }
+        #app { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .screen { display: none; min-height: 100%; position: relative; background: #fff; padding-bottom: 80px;}
+        
+        /* Splash Screen */
+        #splash-screen.active { display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding-top: 0; padding-bottom: 40px;}
+        #home-screen.active, #map-screen.active, #driver-screen.active { display: block; }
+
+        :root { --green: #00880D; --light-green: #00AA13; }
+
+        /* === 1. SPLASH SCREEN === */
+        .splash-center { flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
+        .splash-logo { width: 150px; height: auto; object-fit: contain; } 
+        .splash-bottom { text-align: center; }
+        .splash-bottom p { font-size: 11px; color: #555; margin-bottom: 5px; font-weight: 500; }
+        .goto-logo { width: 60px; height: auto; object-fit: contain; }
+
+        /* === 2. HOME SCREEN === */
+        .home-header { padding: 15px; display: flex; gap: 15px; align-items: center; position: sticky; top: 0; background: white; z-index: 10; }
+        .search-bar { flex-grow: 1; background: #F0F0F0; border-radius: 30px; padding: 12px 15px; font-size: 14px; color: #888; display: flex; align-items: center; gap: 10px; border: 1px solid #E5E5E5; }
+        .profile-btn { width: 40px; height: 40px; background: #E0E0E0; border-radius: 50%; display: flex; justify-content: center; align-items: center; position: relative; font-weight: bold; color: #555;}
+        .profile-btn::after { content: ''; width: 10px; height: 10px; background: #E6212A; border-radius: 50%; position: absolute; top: 0; right: 0; border: 2px solid white; }
+
+        .promo-banner { background: linear-gradient(90deg, #E1F5FE, #B3E5FC); margin: 0 15px 15px; border-radius: 15px; padding: 15px; display: flex; align-items: center; justify-content: space-between;}
+        .promo-text h3 { font-size: 16px; color: #0277BD; margin-bottom: 5px; font-weight: 800;}
+        .promo-text p { font-size: 12px; color: #01579B; font-weight: 600;}
+        .promo-btn { background: #0288D1; color: white; padding: 5px 10px; border-radius: 20px; font-size: 10px; font-weight: bold;}
+
+        .gopay-card { background: white; margin: 0 15px 15px; border-radius: 15px; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #f0f0f0;}
+        .gopay-balance { display: flex; align-items: center; gap: 10px; background: white; padding: 5px 10px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);}
+        .gopay-icon { width: 20px; height: 20px; background: #00AED6; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-size: 10px; font-weight: bold;}
+        .gopay-text h3 { font-size: 15px; margin: 0; color: #111;}
+        .gopay-text p { font-size: 11px; color: #888; margin: 0; }
+        .gopay-actions { display: flex; gap: 15px; }
+        .action-item { display: flex; flex-direction: column; align-items: center; font-size: 11px; font-weight: 600; color: #333; gap: 5px; }
+        .action-icon { width: 28px; height: 28px; background: #E1F5FE; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: #00AED6; font-size: 14px; font-weight: bold;}
+
+        .services-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 10px; padding: 10px 15px 25px; }
+        .service-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative; }
+        .service-icon-wrap { width: 48px; height: 48px; border-radius: 16px; display: flex; justify-content: center; align-items: center; margin-bottom: 6px; font-size: 22px;}
+        .badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); color: white; font-size: 9px; font-weight: bold; padding: 3px 6px; border-radius: 8px; white-space: nowrap; z-index: 2;}
+        .service-name { font-size: 12px; font-weight: 500; color: #333; }
+
+        .service-item.goride .service-icon-wrap { background: #E5F9E9; border: 1px solid var(--light-green); transform: scale(1.05); }
+        .service-item.goride .badge { background: #E6212A; } 
+        .service-item.goride .service-name { font-weight: 700; color: var(--green); }
+
+        /* History Section */
+        .history-section { padding: 0 15px 20px; }
+        .history-title { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 12px; }
+        .history-card { background: white; border-radius: 15px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; display: flex; align-items: center; gap: 15px; margin-bottom: 10px; transition: 0.3s;}
+        .history-icon { width: 40px; height: 40px; background: #F0F0F0; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; }
+        .history-details { flex-grow: 1; }
+        .history-details h4 { margin: 0 0 3px; font-size: 14px; color: #111; }
+        .history-details p { margin: 0; font-size: 12px; color: #888; }
+        .history-btn { background: #F0F0F0; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; color: #888; }
+
+        /* Highlight untuk Jalan Bareng diviendra */
+        .highlight-history { border: 2px solid var(--light-green); background: #fafffb; animation: pulse-border 2s infinite; cursor: pointer; position: relative;}
+        .highlight-history .history-icon { background: #E5F9E9; }
+        .highlight-history .history-btn { background: var(--light-green); color: white; }
+        .badge-history { position: absolute; top: -10px; right: 10px; background: #E6212A; color: white; font-size: 9px; font-weight: bold; padding: 3px 8px; border-radius: 10px;}
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(0, 170, 19, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 170, 19, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 170, 19, 0); }
+        }
+
+        .banner-plus { background: linear-gradient(90deg, #D9F4A7, #A3E05A); margin: 0 15px 20px; border-radius: 15px; padding: 15px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #111;}
+
+        .bottom-nav { position: absolute; bottom: 0; left: 0; width: 100%; height: 65px; background: white; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-around; align-items: center; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.03);}
+        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: #999; gap: 4px; font-weight: 600;}
+        .nav-item.active { color: var(--green); }
+        .nav-icon { font-size: 22px; filter: grayscale(100%) opacity(0.5); }
+        .nav-item.active .nav-icon { filter: grayscale(0%) opacity(1); }
+
+        #toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 25px; font-size: 13px; font-weight: bold; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; z-index: 1000; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.2);}
+
+        /* === 3. MAP SCREEN === */
+        #map-screen { padding-bottom: 0; }
+        .map-header { position: absolute; top: 15px; left: 15px; z-index: 10; display: flex; width: calc(100% - 30px); gap: 10px;}
+        .back-btn { width: 45px; height: 45px; background: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer; font-size: 20px; font-weight: bold; color: #333;}
+        .map-search { flex-grow: 1; background: white; border-radius: 25px; display: flex; align-items: center; padding: 0 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-size: 14px; font-weight: 600; color: #333;}
+        #map { width: 100%; height: 100vh; z-index: 1; }
+
+        .bottom-sheet { position: absolute; bottom: 0; left: 0; width: 100%; background: white; border-radius: 24px 24px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); z-index: 10; padding: 25px 20px 35px; display: flex; flex-direction: column;}
+        .sheet-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .sheet-title h3 { font-size: 18px; margin: 0; font-weight: 800;}
+        .edit-btn { background: #F0F0F0; color: var(--green); padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+        .location-card { background: #F5F6F6; padding: 16px; border-radius: 16px; display: flex; gap: 15px; align-items: flex-start; margin-bottom: 25px; border: 1px solid #E5E5E5;}
+        .loc-icon { width: 28px; height: 28px; background: var(--light-green); border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-size: 14px; font-weight: bold; margin-top: 2px;}
+        .loc-details h4 { margin: 0 0 6px; font-size: 15px; color: #111; font-weight: 700;}
+        .loc-details p { margin: 0; font-size: 13px; color: #666; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .btn-lanjut { background: var(--green); color: white; border: none; padding: 16px; border-radius: 30px; font-size: 16px; font-weight: bold; width: 100%; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 136, 13, 0.3);}
+
+        /* CUSTOM GREEN MAP PIN */
+        .custom-green-pin { display: flex; justify-content: center; align-items: center; }
+        .pin-dot { width: 20px; height: 20px; background-color: var(--light-green); border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.4); animation: pin-pulse 2s infinite;}
+        @keyframes pin-pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 170, 19, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 170, 19, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 170, 19, 0); } }
+
+        /* === 4. DRIVER SCREEN === */
+        #driver-screen { padding: 0; background: #f5f6f6; height: 100vh; overflow-y: auto;}
+        
+        /* Animasi Radar Keren */
+        #loading-state { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white;}
+        .radar-box { position: relative; width: 220px; height: 220px; margin-bottom: 40px; }
+        .radar-center { width: 50px; height: 50px; background: var(--light-green); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2; display: flex; justify-content: center; align-items: center; color: white; font-size: 24px;}
+        .radar-ripple { width: 100%; height: 100%; border: 2px solid var(--light-green); border-radius: 50%; position: absolute; top: 0; left: 0; animation: ripple 2s infinite cubic-bezier(0.1, 0.8, 0.3, 1); opacity: 0;}
+        .radar-ripple:nth-child(2) { animation-delay: 0.5s; }
+        .radar-ripple:nth-child(3) { animation-delay: 1s; }
+        @keyframes ripple { 0% { transform: scale(0.2); opacity: 1; border-width: 4px; } 100% { transform: scale(1.2); opacity: 0; border-width: 1px; } }
+
+        #loading-text-dynamic { font-size: 18px; font-weight: 700; color: #333; margin-top: 20px; height: 30px; transition: 0.3s;}
+
+        /* Driver Found Detail */
+        #found-state { display: none; flex-direction: column; padding: 30px 20px; }
+        .success-header { text-align: center; margin-bottom: 25px; }
+        .success-header h2 { color: var(--light-green); font-weight: 800; margin-bottom: 5px; font-size: 24px;}
+        
+        .driver-card-full { background: white; border-radius: 20px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; border: 1px solid #E5E5E5; margin-bottom: 20px;}
+        .driver-photo-real { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 4px solid var(--light-green); box-shadow: 0 4px 15px rgba(0, 170, 19, 0.2);}
+        .driver-name { font-size: 22px; font-weight: 800; margin-bottom: 5px; color: #111;}
+        .driver-rating { font-size: 14px; color: #666; font-weight: 600; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; gap: 5px;}
+        
+        .vehicle-info { background: #F5F6F6; border-radius: 12px; padding: 15px; display: flex; justify-content: space-around; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc;}
+        .v-item h5 { font-size: 11px; color: #888; margin: 0 0 5px; text-transform: uppercase;}
+        .v-item p { font-size: 15px; font-weight: 700; color: #111; margin: 0;}
+
+        .driver-notes { background: #E5F9E9; border-radius: 12px; padding: 15px; text-align: left; margin-bottom: 25px; border-left: 4px solid var(--green);}
+        .driver-notes h5 { margin: 0 0 5px; font-size: 13px; color: var(--green);}
+        .driver-notes p { margin: 0; font-size: 13px; color: #444; line-height: 1.4; font-style: italic;}
+
+        .wa-btn { background: #25D366; color: white; text-decoration: none; padding: 16px; border-radius: 30px; font-weight: bold; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; width: 100%; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);}
+
+    </style>
+</head>
+<body>
+
+    <div id="app">
+
+        <div id="splash-screen" class="screen active">
+            <div class="splash-center">
+                <img src="logo1.png" alt="Gojek" class="splash-logo" onerror="this.alt='[Logo Gojek PNG]'">
+            </div>
+            <div class="splash-bottom">
+                <p>from</p>
+                <img src="logo2.png" alt="GoTo" class="goto-logo" onerror="this.alt='[Logo GoTo PNG]'">
+            </div>
+        </div>
+
+        <div id="home-screen" class="screen">
+            <div class="home-header">
+                <div class="search-bar"><span>🔍</span> Cari Ayam Bakar...</div>
+                <div class="profile-btn">A</div>
+            </div>
+
+            <div class="promo-banner">
+                <div class="promo-text"><h3>Diskon s.d. 50%</h3><p>Makan enak bareng diviendra</p></div>
+                <div class="promo-btn">Pesan Sekarang</div>
+            </div>
+
+            <div class="gopay-card">
+                <div class="gopay-balance">
+                    <div class="gopay-icon">G</div>
+                    <div class="gopay-text"><h3>Rp190</h3><p>0 coins</p></div>
+                </div>
+                <div class="gopay-actions">
+                    <div class="action-item"><div class="action-icon">↑</div>Bayar</div>
+                    <div class="action-item"><div class="action-icon" style="font-size:18px;">+</div>Top Up</div>
+                    <div class="action-item"><div class="action-icon">••</div>Lainnya</div>
+                </div>
+            </div>
+
+            <div class="services-grid">
+              
+                <div class="service-item" onclick="salahPilih()"><div class="badge" style="background:#555;">-30rb</div><div class="service-icon-wrap" style="background:#E0F7FA;">🛵</div><div class="service-name">GoRide</div></div>
+                <div class="service-item goride" onclick="bukaMap()">
+                    <div class="badge">SINI SAYANG!</div>
+                    <div class="service-icon-wrap">🚗</div>
+                    <div class="service-name">GoCar</div>
+                </div>
+                <div class="service-item" onclick="salahPilih()"><div class="badge" style="background:#555;">-70%</div><div class="service-icon-wrap" style="background:#FFEBEE;">🍔</div><div class="service-name">GoFood</div></div>
+                <div class="service-item" onclick="salahPilih()"><div class="badge" style="background:#555;">5RB!</div><div class="service-icon-wrap" style="background:#FFF8E1;">📦</div><div class="service-name">GoSend</div></div>
+                <div class="service-item" onclick="salahPilih()"><div class="service-icon-wrap" style="background:#FCE4EC;">🛍️</div><div class="service-name">GoMart</div></div>
+                <div class="service-item" onclick="salahPilih()"><div class="badge" style="background:#00AED6;">35JUTA</div><div class="service-icon-wrap" style="background:#E1F5FE;">💰</div><div class="service-name">Pinjam</div></div>
+                <div class="service-item" onclick="salahPilih()"><div class="service-icon-wrap" style="background:#E8F5E9;">🩺</div><div class="service-name">Kesehatan</div></div>
+                <div class="service-item" onclick="salahPilih()"><div class="service-icon-wrap" style="background:#F5F5F5;">••</div><div class="service-name">Lainnya</div></div>
+            </div>
+
+            <div class="history-section">
+                <div class="history-title">Lebih cepat buat book lagi</div>
+                
+                <div class="history-card highlight-history" onclick="bukaMap()">
+                    <div class="badge-history">BISA KLIK INI JUGA!</div>
+                    <div class="history-icon">🚗</div>
+                    <div class="history-details">
+                        <h4>Jalan Bareng diviendra</h4>
+                        <p>Ke mana aja asal sama kamu</p>
+                    </div>
+                    <div class="history-btn">Cek</div>
+                </div>
+                
+                <div class="history-card" onclick="salahPilih()">
+                    <div class="history-icon">🍜</div>
+                    <div class="history-details">
+                        <h4>GoFood Favorit iyel</h4>
+                        <p>Sate Asin Acong & Matcha</p>
+                    </div>
+                    <div class="history-btn">Cek</div>
+                </div>
+            </div>
+
+            <div class="banner-plus">
+                <div>Langganan PLUS sekarang!<br><span style="font-size:12px; font-weight:normal;">Klaim diskon khusus kamu →</span></div>
+            </div>
+
+            <div class="bottom-nav">
+                <div class="nav-item active" onclick="kembaliHome()"><div class="nav-icon">🏠</div>Beranda</div>
+                <div class="nav-item" onclick="salahPilih()"><div class="nav-icon">🏷️</div>Promo</div>
+                <div class="nav-item" onclick="salahPilih()"><div class="nav-icon">📝</div>Aktivitas</div>
+                <div class="nav-item" onclick="salahPilih()"><div class="nav-icon">💬</div>Chat</div>
+            </div>
+        </div>
+
+        <div id="map-screen" class="screen">
+            <div class="map-header">
+                <div class="back-btn" onclick="kembaliHome()">←</div>
+                <div class="map-search">📍 Titik jemput</div>
+            </div>
+
+            <div id="map"></div>
+
+            <div class="bottom-sheet">
+                <div class="sheet-title">
+                    <h3>Set lokasi jemput</h3>
+                    <div class="edit-btn">Edit</div>
+                </div>
+                
+                <div class="location-card">
+                    <div class="loc-icon">↑</div>
+                    <div class="loc-details">
+                        <h4 id="alamat-utama">Mencari lokasimu...</h4>
+                        <p id="alamat-detail">Pastikan GPS nyala ya.</p>
+                    </div>
+                </div>
+
+                <button class="btn-lanjut" onclick="cariDriver()">Lanjut</button>
+            </div>
+        </div>
+
+        <div id="driver-screen" class="screen">
+            
+            <div id="loading-state">
+                <div class="radar-box">
+                    <div class="radar-ripple"></div>
+                    <div class="radar-ripple"></div>
+                    <div class="radar-ripple"></div>
+                    <div class="radar-center">📍</div>
+                </div>
+                <div id="loading-text-dynamic">Mencari supir khusus buatmu...</div>
+                <p style="font-size:14px; color:#888; margin-top:5px;">Tunggu bentar ya sayang ❤️</p>
+            </div>
+
+            <div id="found-state">
+                <div class="success-header">
+                    <h2>Supir Ditemukan!</h2>
+                    <p style="color:#666; font-size:14px;">Yay! Supir favoritmu siap meluncur.</p>
+                </div>
+                
+                <div class="driver-card-full">
+                    <img src="fotoku.jpeg" alt="diviendra" class="driver-photo-real" onerror="this.src='https://picsum.photos/100'">
+                    
+                    <div class="driver-name">diviendra</div>
+                    <div class="driver-rating"><span>⭐ 5.0</span> • <span>Driver Prioritas iyel</span></div>
+                    
+                    <div class="vehicle-info">
+                        <div class="v-item">
+                            <h5>Plat Nomor</h5>
+                            <p>L 0 V 3</p>
+                        </div>
+                        <div style="width:1px; background:#ddd;"></div>
+                        <div class="v-item">
+                            <h5>Kendaraan</h5>
+                            <p>Hyundai Stragezer</p>
+                        </div>
+                    </div>
+
+                    <div class="driver-notes">
+                        <h5>📝 Pesan dari Driver:</h5>
+                        <p>"Dandan yang cantik ya, aku otw jemput sekarang. Pake jaket biar gak masuk angin!"</p>
+                    </div>
+                    
+                    <a href="#" class="wa-btn" id="wa-link">
+                        <span style="font-size:20px;">💬</span> Chat Supir Sekarang
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="toast">Pilih GoCar sayang ❤️</div>
+
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <script>
+        // === KONFIGURASI WA SESUAI REQUEST ===
+        // Harus pake 628 depannya biar kebuka ke WhatsApp
+        const NO_WA = "6281111122878"; 
+        const PESAN = "aku udah siap ya, cepettt otww, HATI HATIII YAA";
+
+        // === DOM ELEMENTS ===
+        const toast = document.getElementById('toast');
+        const mapSearch = document.querySelector('.map-search');
+        const alamatUtama = document.getElementById('alamat-utama');
+        const alamatDetail = document.getElementById('alamat-detail');
+        const loadingState = document.getElementById('loading-state');
+        const foundState = document.getElementById('found-state');
+        const loadingTextDynamic = document.getElementById('loading-text-dynamic');
+        const waLink = document.getElementById('wa-link');
+
+        let map, userMarker;
+
+        // === 1. SPLASH SCREEN TO HOME ===
+        setTimeout(() => {
+            showScreen('home-screen');
+        }, 3000);
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'map-screen' && map) setTimeout(() => map.invalidateSize(), 100);
+        }
+
+        function salahPilih() {
+            toast.style.opacity = '1';
+            setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+        }
+
+        function kembaliHome() {
+            showScreen('home-screen');
+        }
+
+        // === 3. MAP LOGIC DENGAN PIN HIJAU ===
+        function bukaMap() {
+            showScreen('map-screen');
+            if (!map) initMap();
+        }
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([-6.2088, 106.8456], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+            // Bikin Custom HTML Pin Warna Hijau Gojek
+            const greenIcon = L.divIcon({
+                className: 'custom-green-pin',
+                html: '<div class="pin-dot"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            map.locate({setView: true, maxZoom: 16});
+
+            map.on('locationfound', function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                // Marker user pakai pin hijau
+                userMarker = L.marker(e.latlng, {icon: greenIcon}).addTo(map);
+                
+                // Fake Drivers pakai icon motor
+                for(let i=0; i<3; i++) {
+                    let randLat = lat + (Math.random() - 0.5) * 0.006;
+                    let randLng = lng + (Math.random() - 0.5) * 0.006;
+                    L.marker([randLat, randLng], {
+                        icon: L.divIcon({className: 'custom-green-pin', html: '<span style="font-size:24px; filter:drop-shadow(0px 2px 2px rgba(0,0,0,0.5));">🛵</span>', iconSize: [30,30], iconAnchor: [15,15]})
+                    }).addTo(map);
+                }
+
+                // Ambil Alamat
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                .then(res => res.json())
+                .then(data => {
+                    const address = data.address;
+                    const mainLoc = address.road || address.suburb || "Lokasi Saat Ini";
+                    const fullLoc = data.display_name;
+                    
+                    mapSearch.innerHTML = `📍 ${mainLoc}`;
+                    alamatUtama.innerText = mainLoc;
+                    alamatDetail.innerText = fullLoc;
+                }).catch(() => {
+                    alamatUtama.innerText = "Lokasi Ditemukan";
+                    alamatDetail.innerText = `Koordinat: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                });
+            });
+
+            map.on('locationerror', function(e) {
+                alamatUtama.innerText = "Gagal akses GPS";
+                alamatDetail.innerText = "Pastikan kamu klik 'Allow' saat browser meminta akses lokasi ya.";
+            });
+        }
+
+        // === 4. DRIVER LOGIC DENGAN ANIMASI TEKS ===
+        function cariDriver() {
+            showScreen('driver-screen');
+            loadingState.style.display = 'flex';
+            foundState.style.display = 'none';
+
+            // Animasi ganti teks loading biar gak sepi
+            const loadingTexts = [
+                "Menghubungi server cinta...",
+                "Membangunkan supir ganteng...",
+                "Menyiapkan helm & jaket...",
+                "Hampir dapet nih..."
+            ];
+            
+            let textIdx = 0;
+            const textInterval = setInterval(() => {
+                if(textIdx < loadingTexts.length) {
+                    loadingTextDynamic.innerText = loadingTexts[textIdx];
+                    textIdx++;
+                }
+            }, 1200); // Ganti teks tiap 1.2 detik
+
+            // Selesai loading setelah 5 detik
+            setTimeout(() => {
+                clearInterval(textInterval);
+                loadingState.style.display = 'none';
+                foundState.style.display = 'flex';
+                waLink.href = `https://wa.me/${NO_WA}?text=${encodeURIComponent(PESAN)}`;
+            }, 5500); 
+        }
+    </script>
+</body>
+</html>
